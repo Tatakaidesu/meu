@@ -1,4 +1,4 @@
--- Este é um script de aimbot simples para o Roblox. Ele irá automaticamente alinhar com o jogador mais próximo da mira.
+-- Este é um script de aimbot mais complexo para o Roblox. Ele irá automaticamente alinhar com o jogador mais próximo da mira.
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
