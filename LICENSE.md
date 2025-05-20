@@ -1,163 +1,162 @@
--- LocalScript (StarterPlayerScripts)
-
+-- Legit Aim Assist + ESP com UI (LocalScript)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
 
-local player = Players.LocalPlayer
-local mouse = player:GetMouse()
-local camera = workspace.CurrentCamera
+-- CONFIG
+local AIM_RADIUS = 120
+local TARGET_PART = "Head"
 
-local aimRadius = 100
-local targetPartName = "Head"
-local isEnabled = false
-local guiVisible = true
+-- Estados
+local aimAssistEnabled = false
+local espEnabled = false
 
--- Aguarda PlayerGui
-local playerGui = player:WaitForChild("PlayerGui")
-
--- Criar GUI principal
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AimAssistGui"
+-- GUI
+local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+screenGui.Name = "AssistDebugUI"
 screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-screenGui.Enabled = true
-screenGui.Parent = playerGui
 
--- Criar container (fundo) com estilo moderno
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 120)
+-- Painel
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 250, 0, 150)
 frame.Position = UDim2.new(0, 50, 0, 50)
-frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-frame.BorderSizePixel = 0
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 frame.Active = true
 frame.Draggable = true
-frame.Parent = screenGui
 
--- Cantos arredondados
-local corner = Instance.new("UICorner")
+local corner = Instance.new("UICorner", frame)
 corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = frame
-
--- Sombra suave
-local shadow = Instance.new("ImageLabel")
-shadow.Size = frame.Size + UDim2.new(0, 20, 0, 20)
-shadow.Position = frame.Position - UDim2.new(0, 10, 0, 10)
-shadow.BackgroundTransparency = 1
-shadow.Image = "rbxassetid://1316045217"
-shadow.ImageTransparency = 0.5
-shadow.ScaleType = Enum.ScaleType.Slice
-shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-shadow.Parent = screenGui
-frame:GetPropertyChangedSignal("Position"):Connect(function()
-	shadow.Position = frame.Position - UDim2.new(0, 10, 0, 10)
-end)
 
 -- Título
-local title = Instance.new("TextLabel")
-title.Text = "Aim Assist"
-title.Font = Enum.Font.GothamBold
-title.TextSize = 22
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
+local title = Instance.new("TextLabel", frame)
+title.Text = "Sistema de Assistência"
+title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
-title.Size = UDim2.new(1, 0, 0, 35)
-title.Parent = frame
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
 
--- Botão estilizado
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0.8, 0, 0, 40)
-button.Position = UDim2.new(0.1, 0, 0.55, 0)
-button.Text = "Ativar Aim Assist"
-button.Font = Enum.Font.Gotham
-button.TextSize = 18
-button.TextColor3 = Color3.new(1, 1, 1)
-button.BackgroundColor3 = Color3.fromRGB(60, 150, 255)
-button.Parent = frame
+-- Botão Aim Assist
+local aimButton = Instance.new("TextButton", frame)
+aimButton.Size = UDim2.new(0.8, 0, 0, 30)
+aimButton.Position = UDim2.new(0.1, 0, 0.35, 0)
+aimButton.Text = "Ativar Aim Assist"
+aimButton.BackgroundColor3 = Color3.fromRGB(50, 120, 255)
+aimButton.TextColor3 = Color3.new(1, 1, 1)
+aimButton.Font = Enum.Font.Gotham
+aimButton.TextSize = 16
+Instance.new("UICorner", aimButton)
 
-local buttonCorner = Instance.new("UICorner")
-buttonCorner.CornerRadius = UDim.new(0, 8)
-buttonCorner.Parent = button
+-- Botão ESP
+local espButton = Instance.new("TextButton", frame)
+espButton.Size = UDim2.new(0.8, 0, 0, 30)
+espButton.Position = UDim2.new(0.1, 0, 0.65, 0)
+espButton.Text = "Ativar ESP"
+espButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+espButton.TextColor3 = Color3.new(1, 1, 1)
+espButton.Font = Enum.Font.Gotham
+espButton.TextSize = 16
+Instance.new("UICorner", espButton)
 
-button.MouseButton1Click:Connect(function()
-	isEnabled = not isEnabled
-	button.Text = isEnabled and "Desativar Aim Assist" or "Ativar Aim Assist"
-	button.BackgroundColor3 = isEnabled and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(60, 150, 255)
-end)
+-- Função para encontrar o inimigo mais próximo
+local function getClosestTarget()
+	local closest
+	local minDist = AIM_RADIUS
 
--- Tecla G alterna a interface
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.G then
-		guiVisible = not guiVisible
-		screenGui.Enabled = guiVisible
+	for _, v in pairs(workspace:GetChildren()) do
+		if v:IsA("Model") and v ~= LocalPlayer.Character and v:FindFirstChild(TARGET_PART) then
+			local part = v[TARGET_PART]
+			local screenPos, visible = Camera:WorldToViewportPoint(part.Position)
+			if visible then
+				local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+				if dist < minDist then
+					minDist = dist
+					closest = part
+				end
+			end
+		end
+	end
+
+	return closest
+end
+
+-- Mira assistida suave
+RunService.RenderStepped:Connect(function()
+	if aimAssistEnabled then
+		local target = getClosestTarget()
+		if target then
+			local current = Camera.CFrame.Position
+			local direction = (target.Position - current).Unit
+			local newLook = current + direction
+			Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(current, newLook), 0.15)
+		end
 	end
 end)
 
--- ESP (nome flutuante)
-local function createESP(target)
-	if not target:FindFirstChild("Head") then return end
-	if target:FindFirstChild("ESP") then return end
+-- ESP - Nome flutuante
+local function applyESP(model)
+	if model:FindFirstChild("ESP") then return end
+	if not model:FindFirstChild(TARGET_PART) then return end
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "ESP"
-	billboard.Size = UDim2.new(0, 100, 0, 30)
-	billboard.Adornee = target.Head
+	billboard.Size = UDim2.new(0, 100, 0, 20)
+	billboard.Adornee = model[TARGET_PART]
 	billboard.AlwaysOnTop = true
 	billboard.StudsOffset = Vector3.new(0, 2, 0)
-	billboard.Parent = target
 
-	local label = Instance.new("TextLabel")
+	local label = Instance.new("TextLabel", billboard)
 	label.Size = UDim2.new(1, 0, 1, 0)
 	label.BackgroundTransparency = 1
-	label.Text = target.Name
-	label.TextColor3 = Color3.fromRGB(255, 0, 0)
-	label.TextStrokeTransparency = 0.5
-	label.TextScaled = true
+	label.Text = model.Name
+	label.TextColor3 = Color3.new(1, 0, 0)
 	label.Font = Enum.Font.GothamBold
-	label.Parent = billboard
+	label.TextScaled = true
+
+	billboard.Parent = model
 end
 
--- Atualizar ESP
+-- Atualiza ESP
 task.spawn(function()
 	while true do
-		for _, npc in pairs(workspace:GetChildren()) do
-			if npc:IsA("Model") and npc:FindFirstChild("Head") then
-				createESP(npc)
+		if espEnabled then
+			for _, model in pairs(workspace:GetChildren()) do
+				if model:IsA("Model") and model:FindFirstChild(TARGET_PART) and not model:FindFirstChild("ESP") then
+					applyESP(model)
+				end
+			end
+		else
+			for _, model in pairs(workspace:GetChildren()) do
+				if model:FindFirstChild("ESP") then
+					model:FindFirstChild("ESP"):Destroy()
+				end
 			end
 		end
 		task.wait(2)
 	end
 end)
 
--- Função de alvo
-local function getClosestTarget()
-	local closestTarget = nil
-	local closestDistance = aimRadius
+-- Botão toggle Aim
+aimButton.MouseButton1Click:Connect(function()
+	aimAssistEnabled = not aimAssistEnabled
+	aimButton.Text = aimAssistEnabled and "Desativar Aim Assist" or "Ativar Aim Assist"
+	aimButton.BackgroundColor3 = aimAssistEnabled and Color3.fromRGB(200, 80, 80) or Color3.fromRGB(50, 120, 255)
+end)
 
-	for _, npc in pairs(workspace:GetChildren()) do
-		if npc:FindFirstChild(targetPartName) and not npc:IsA("Tool") then
-			local part = npc[targetPartName]
-			local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
-			if onScreen then
-				local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-				if dist < closestDistance then
-					closestDistance = dist
-					closestTarget = part
-				end
-			end
-		end
-	end
+-- Botão toggle ESP
+espButton.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	espButton.Text = espEnabled and "Desativar ESP" or "Ativar ESP"
+	espButton.BackgroundColor3 = espEnabled and Color3.fromRGB(200, 80, 80) or Color3.fromRGB(100, 200, 100)
+end)
 
-	return closestTarget
-end
-
--- Aim assist
-RunService.RenderStepped:Connect(function()
-	if not isEnabled then return end
-
-	local target = getClosestTarget()
-	if target then
-		local direction = (target.Position - camera.CFrame.Position).Unit
-		camera.CFrame = CFrame.new(camera.CFrame.Position, camera.CFrame.Position + direction)
+-- Tecla G para mostrar/ocultar painel
+UIS.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.G then
+		screenGui.Enabled = not screenGui.Enabled
 	end
 end)
