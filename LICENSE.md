@@ -1,118 +1,188 @@
--- =============================================
--- AIMBOT HACKER (SEM COOLDOWN) - LOCALSCRIPT
--- =============================================
-
+-- Serviços
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
+-- Configurações
+local SETTINGS = {
+    AIMBOT = {
+        ACTIVATION_KEY = Enum.UserInputType.MouseButton2,  -- Botão direito do mouse
+        STRENGTH = 0.25,  -- Força da assistência (0.1-0.9)
+        MAX_DISTANCE = 1000,  -- Alcance máximo
+        ENABLED = true
+    },
+    ESP = {
+        ENABLED = true,
+        BOX_COLOR = Color3.fromRGB(255, 50, 50),
+        TEXT_COLOR = Color3.fromRGB(255, 255, 255),
+        SHOW_NAMES = true
+    }
+}
+
+-- Variáveis
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
+local espCache = {}
+local aimbotActive = false
 
--- Configurações ajustáveis
-local AIM_ASSIST_STRENGTH = 0.25  -- Força da assistência (0.1 = fraco, 0.9 = forte)
-local MAX_DISTANCE = 150  -- Distância máxima de detecção
-local HIGHLIGHT_COLOR = Color3.fromRGB(255, 50, 50)  -- Cor do highlight
-
--- Variáveis de estado
-local active = false
-local currentTarget = nil
-local highlightInstances = {}
-
--- Função para destacar inimigos
-local function highlightEnemies()
-    -- Remove highlights antigos
-    for _, highlight in ipairs(highlightInstances) do
-        highlight:Destroy()
-    end
-    highlightInstances = {}
+-- Funções do ESP
+local function createESP(target)
+    if not target.Character or espCache[target] then return end
     
-    -- Adiciona novos highlights
-    local enemies = workspace:FindFirstChild("Enemies") or workspace
-    for _, enemy in ipairs(enemies:GetChildren()) do
-        if enemy:FindFirstChild("Humanoid") and enemy:FindFirstChild("Head") then
-            local highlight = Instance.new("Highlight")
-            highlight.FillTransparency = 0.8
-            highlight.OutlineColor = HIGHLIGHT_COLOR
-            highlight.Parent = enemy
-            table.insert(highlightInstances, highlight)
+    local character = target.Character
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+
+    -- Highlight (caixa)
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillTransparency = 0.85
+    highlight.OutlineColor = SETTINGS.ESP.BOX_COLOR
+    highlight.OutlineTransparency = 0
+    highlight.Parent = character
+
+    -- Billboard (nome)
+    if SETTINGS.ESP.SHOW_NAMES then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "ESP_Billboard"
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = humanoidRootPart
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Text = target.Name
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.TextColor3 = SETTINGS.ESP.TEXT_COLOR
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextStrokeTransparency = 0.7
+        textLabel.Font = Enum.Font.SciFi
+        textLabel.TextSize = 18
+        textLabel.Parent = billboard
+        billboard.Parent = character
+
+        espCache[target] = {
+            Highlight = highlight,
+            Billboard = billboard
+        }
+    else
+        espCache[target] = {
+            Highlight = highlight
+        }
+    end
+end
+
+local function removeESP(target)
+    if not espCache[target] then return end
+    
+    for _, item in pairs(espCache[target]) do
+        if item then
+            item:Destroy()
+        end
+    end
+    espCache[target] = nil
+end
+
+local function updateAllESP()
+    for _, target in ipairs(Players:GetPlayers()) do
+        if target ~= player then
+            if SETTINGS.ESP.ENABLED then
+                createESP(target)
+            else
+                removeESP(target)
+            end
         end
     end
 end
 
--- Encontra o inimigo mais próximo
-local function findNearestEnemy()
-    local closest = nil
-    local closestDistance = MAX_DISTANCE
-    local char = player.Character
+-- Funções do Aimbot
+local function findNearestTarget()
+    local closestTarget = nil
+    local closestDistance = SETTINGS.AIMBOT.MAX_DISTANCE
+    local localChar = player.Character
     
-    if not char or not char:FindFirstChild("HumanoidRootPart") then 
-        return nil 
-    end
+    if not localChar then return nil end
     
-    local rootPos = char.HumanoidRootPart.Position
+    local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return nil end
     
-    for _, enemy in ipairs(workspace:GetChildren()) do
-        if enemy:FindFirstChild("Humanoid") and enemy:FindFirstChild("HumanoidRootPart") then
-            local enemyRoot = enemy.HumanoidRootPart
-            local distance = (rootPos - enemyRoot.Position).Magnitude
-            
-            if distance < closestDistance then
-                closestDistance = distance
-                closest = enemyRoot
+    for _, target in ipairs(Players:GetPlayers()) do
+        if target ~= player and target.Character then
+            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local distance = (localRoot.Position - targetRoot.Position).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestTarget = targetRoot
+                end
             end
         end
     end
     
-    return closest
+    return closestTarget
 end
 
--- Suaviza a mira em direção ao alvo
-local function smoothAim(target)
+local function applyAimbot()
+    if not aimbotActive or not SETTINGS.AIMBOT.ENABLED then return end
+    
+    local target = findNearestTarget()
     if not target then return end
     
     local currentCF = camera.CFrame
     local targetPos = target.Position
     local direction = (targetPos - currentCF.Position).Unit
     
-    -- Aplica a interpolação suave
-    local newLook = currentCF.LookVector:Lerp(direction, AIM_ASSIST_STRENGTH)
+    local newLook = currentCF.LookVector:Lerp(direction, SETTINGS.AIMBOT.STRENGTH)
     camera.CFrame = CFrame.lookAt(currentCF.Position, currentCF.Position + newLook)
 end
 
--- Ativa/desativa com a tecla Q
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.Q and not gameProcessed then
-        active = not active
-        
-        if active then
-            highlightEnemies()
-            print("Aimbot Hacker ATIVADO")
-        else
-            for _, highlight in ipairs(highlightInstances) do
-                highlight:Destroy()
-            end
-            highlightInstances = {}
-            print("Aimbot Hacker DESATIVADO")
-        end
+-- Controles
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == SETTINGS.AIMBOT.ACTIVATION_KEY then
+        aimbotActive = true
     end
 end)
 
--- Loop principal de assistência
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == SETTINGS.AIMBOT.ACTIVATION_KEY then
+        aimbotActive = false
+    end
+end)
+
+-- Loop principal
 RunService.RenderStepped:Connect(function()
-    if active then
-        currentTarget = findNearestEnemy()
-        if currentTarget then
-            smoothAim(currentTarget)
+    applyAimbot()
+end)
+
+-- Gerenciamento de jogadores
+Players.PlayerAdded:Connect(function(newPlayer)
+    newPlayer.CharacterAdded:Connect(function()
+        if SETTINGS.ESP.ENABLED then
+            createESP(newPlayer)
         end
-    end
+    end)
 end)
 
--- Limpeza quando o script é destruído
-script.Destroying:Connect(function()
-    for _, highlight in ipairs(highlightInstances) do
-        highlight:Destroy()
-    end
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    removeESP(leavingPlayer)
 end)
 
-print("Aimbot Hacker pronto! Pressione Q para ativar/desativar")
+-- Inicialização
+player.CharacterAdded:Connect(function()
+    task.wait(1)  -- Espera o personagem carregar
+    updateAllESP()
+end)
+
+if player.Character then
+    task.wait(1)
+    updateAllESP()
+end
+
+-- Função para atualizar configurações (opcional)
+local function updateSettings(newSettings)
+    SETTINGS = newSettings
+    updateAllESP()
+end
+
+print("Sistema Aimbot+ESP carregado com sucesso!")
+print("Configurações atuais:", SETTINGS)
