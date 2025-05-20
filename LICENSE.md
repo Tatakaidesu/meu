@@ -7,17 +7,33 @@ local camera = workspace.CurrentCamera
 local maxDistance = 100 -- Distância máxima para detectar alvos
 local aimbotActive = false -- Estado do aimbot
 
+-- Aguarda o personagem carregar
+local function waitForCharacter()
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        player.CharacterAdded:Wait()
+    end
+    return player.Character
+end
+
 -- Função para encontrar o alvo mais próximo
 local function findNearestTarget()
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+
     local closestTarget = nil
     local closestDistance = maxDistance
 
     for _, otherPlayer in pairs(Players:GetPlayers()) do
         if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local distance = (player.Character.HumanoidRootPart.Position - otherPlayer.Character.HumanoidRootPart.Position).Magnitude
-            if distance < closestDistance then
-                closestDistance = distance
-                closestTarget = otherPlayer.Character.HumanoidRootPart
+            local targetHumanoid = otherPlayer.Character:FindFirstChild("Humanoid")
+            if targetHumanoid and targetHumanoid.Health > 0 then -- Verifica se o alvo está vivo
+                local distance = (character.HumanoidRootPart.Position - otherPlayer.Character.HumanoidRootPart.Position).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestTarget = otherPlayer.Character.HumanoidRootPart
+                end
             end
         end
     end
@@ -47,6 +63,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         print(aimbotActive and "Aimbot ativado!" or "Aimbot desativado!")
     end
 end)
+
+-- Garante que o personagem está carregado antes de iniciar
+waitForCharacter()
 
 -- Atualizar a cada frame
 RunService.RenderStepped:Connect(updateAimbot)
