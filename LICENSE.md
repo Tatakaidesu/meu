@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -9,11 +9,11 @@ local aimbotActive = false -- Estado do aimbot
 
 -- Função para aguardar o personagem carregar
 local function waitForCharacter()
-    print("Aguardando personagem carregar...")
+    print("[Aimbot] Aguardando personagem carregar...")
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
         player.CharacterAdded:Wait()
     end
-    print("Personagem carregado!")
+    print("[Aimbot] Personagem carregado!")
     return player.Character
 end
 
@@ -21,7 +21,7 @@ end
 local function findNearestTarget()
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then
-        print("Erro: Personagem ou HumanoidRootPart não encontrado!")
+        print("[Aimbot] Erro: Personagem ou HumanoidRootPart não encontrado!")
         return nil
     end
 
@@ -36,14 +36,14 @@ local function findNearestTarget()
                 if distance < closestDistance then
                     closestDistance = distance
                     closestTarget = otherPlayer.Character.HumanoidRootPart
-                    print("Alvo encontrado: " .. otherPlayer.Name .. " a " .. math.floor(distance) .. " studs")
+                    print("[Aimbot] Alvo encontrado: " .. otherPlayer.Name .. " a " .. math.floor(distance) .. " studs")
                 end
             end
         end
     end
 
     if not closestTarget then
-        print("Nenhum alvo válido encontrado dentro de " .. maxDistance .. " studs")
+        print("[Aimbot] Nenhum alvo válido encontrado dentro de " .. maxDistance .. " studs")
     end
     return closestTarget
 end
@@ -53,21 +53,18 @@ local function updateAimbot()
     if aimbotActive then
         local target = findNearestTarget()
         if target then
-            print("Mirando em: " .. tostring(target.Parent.Name))
+            print("[Aimbot] Mirando em: " .. tostring(target.Parent.Name))
             camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position, Vector3.new(target.Position.X, player.Character.HumanoidRootPart.Position.Y, target.Position.Z))
-            end
         end
     end
 end
 
 -- Detectar clique do botão direito do mouse
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    print("Input detectado: " .. tostring(input.UserInputType) .. ", gameProcessed: " .. tostring(gameProcessed))
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+    print("[Aimbot] Input detectado: " .. tostring(input.UserInputType) .. ", gameProcessed: " .. tostring(gameProcessed))
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessed then
         aimbotActive = not aimbotActive
-        print(aimbotActive and "Aimbot ativado!" or "Aimbot desativado!")
+        print(aimbotActive and "[Aimbot] Aimbot ativado!" or "[Aimbot] Aimbot desativado!")
     end
 end)
 
@@ -76,4 +73,4 @@ waitForCharacter()
 
 -- Atualizar a cada frame
 RunService.RenderStepped:Connect(updateAimbot)
-print("Aimbot script iniciado!")
+print("[Aimbot] Script iniciado!")
