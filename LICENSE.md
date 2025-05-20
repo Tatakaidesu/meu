@@ -6,16 +6,16 @@ local RunService = game:GetService("RunService")
 -- Configurações
 local SETTINGS = {
     AIMBOT = {
-        ACTIVATION_KEY = Enum.UserInputType.MouseButton2,  -- Botão direito do mouse
-        STRENGTH = 0.25,  -- Força da assistência (0.1-0.9)
-        MAX_DISTANCE = 1000,  -- Alcance máximo
+        ACTIVATION_KEY = Enum.UserInputType.MouseButton2,  -- Botão direito
+        STRENGTH = 0.35,  -- Força do aimbot (0.1-1.0)
+        MAX_DISTANCE = 1200,  -- Alcance máximo
+        AIM_AT_HEAD = true,  -- Mirar na cabeça
         ENABLED = true
     },
     ESP = {
         ENABLED = true,
-        BOX_COLOR = Color3.fromRGB(255, 50, 50),
-        TEXT_COLOR = Color3.fromRGB(255, 255, 255),
-        SHOW_NAMES = true
+        BOX_COLOR = Color3.fromRGB(255, 70, 70),
+        TEXT_COLOR = Color3.fromRGB(255, 255, 255)
     }
 }
 
@@ -25,64 +25,47 @@ local camera = workspace.CurrentCamera
 local espCache = {}
 local aimbotActive = false
 
--- Funções do ESP
+-- Função para criar ESP
 local function createESP(target)
     if not target.Character or espCache[target] then return end
     
     local character = target.Character
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-
-    -- Highlight (caixa)
     local highlight = Instance.new("Highlight")
     highlight.Name = "ESP_Highlight"
-    highlight.FillTransparency = 0.85
+    highlight.FillTransparency = 0.8
     highlight.OutlineColor = SETTINGS.ESP.BOX_COLOR
     highlight.OutlineTransparency = 0
     highlight.Parent = character
 
-    -- Billboard (nome)
-    if SETTINGS.ESP.SHOW_NAMES then
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "ESP_Billboard"
-        billboard.Size = UDim2.new(0, 200, 0, 50)
-        billboard.StudsOffset = Vector3.new(0, 3, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Adornee = humanoidRootPart
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Billboard"
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = character:WaitForChild("Head")
 
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Text = target.Name
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.TextColor3 = SETTINGS.ESP.TEXT_COLOR
-        textLabel.BackgroundTransparency = 1
-        textLabel.TextStrokeTransparency = 0.7
-        textLabel.Font = Enum.Font.SciFi
-        textLabel.TextSize = 18
-        textLabel.Parent = billboard
-        billboard.Parent = character
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Text = target.Name
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.TextColor3 = SETTINGS.ESP.TEXT_COLOR
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextStrokeTransparency = 0.5
+    textLabel.Parent = billboard
+    billboard.Parent = character
 
-        espCache[target] = {
-            Highlight = highlight,
-            Billboard = billboard
-        }
-    else
-        espCache[target] = {
-            Highlight = highlight
-        }
-    end
+    espCache[target] = {Highlight = highlight, Billboard = billboard}
 end
 
+-- Função para remover ESP
 local function removeESP(target)
-    if not espCache[target] then return end
-    
-    for _, item in pairs(espCache[target]) do
-        if item then
-            item:Destroy()
-        end
+    if espCache[target] then
+        espCache[target].Highlight:Destroy()
+        espCache[target].Billboard:Destroy()
+        espCache[target] = nil
     end
-    espCache[target] = nil
 end
 
+-- Atualizar ESP para todos
 local function updateAllESP()
     for _, target in ipairs(Players:GetPlayers()) do
         if target ~= player then
@@ -95,8 +78,8 @@ local function updateAllESP()
     end
 end
 
--- Funções do Aimbot
-local function findNearestTarget()
+-- Encontrar melhor alvo (agora prioriza cabeça)
+local function findBestTarget()
     local closestTarget = nil
     local closestDistance = SETTINGS.AIMBOT.MAX_DISTANCE
     local localChar = player.Character
@@ -108,12 +91,15 @@ local function findNearestTarget()
     
     for _, target in ipairs(Players:GetPlayers()) do
         if target ~= player and target.Character then
+            local targetHead = target.Character:FindFirstChild("Head")
             local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot then
+            
+            if targetHead and targetRoot then
                 local distance = (localRoot.Position - targetRoot.Position).Magnitude
+                
                 if distance < closestDistance then
                     closestDistance = distance
-                    closestTarget = targetRoot
+                    closestTarget = SETTINGS.AIMBOT.AIM_AT_HEAD and targetHead or targetRoot
                 end
             end
         end
@@ -122,17 +108,21 @@ local function findNearestTarget()
     return closestTarget
 end
 
-local function applyAimbot()
+-- Aimbot preciso (com interpolação suave)
+local function preciseAimbot()
     if not aimbotActive or not SETTINGS.AIMBOT.ENABLED then return end
     
-    local target = findNearestTarget()
+    local target = findBestTarget()
     if not target then return end
     
     local currentCF = camera.CFrame
     local targetPos = target.Position
-    local direction = (targetPos - currentCF.Position).Unit
     
+    -- Cálculo preciso da direção
+    local direction = (targetPos - currentCF.Position).Unit
     local newLook = currentCF.LookVector:Lerp(direction, SETTINGS.AIMBOT.STRENGTH)
+    
+    -- Aplica a mira
     camera.CFrame = CFrame.lookAt(currentCF.Position, currentCF.Position + newLook)
 end
 
@@ -151,7 +141,7 @@ end)
 
 -- Loop principal
 RunService.RenderStepped:Connect(function()
-    applyAimbot()
+    preciseAimbot()
 end)
 
 -- Gerenciamento de jogadores
@@ -163,26 +153,17 @@ Players.PlayerAdded:Connect(function(newPlayer)
     end)
 end)
 
-Players.PlayerRemoving:Connect(function(leavingPlayer)
-    removeESP(leavingPlayer)
-end)
+Players.PlayerRemoving:Connect(removeESP)
 
 -- Inicialização
 player.CharacterAdded:Connect(function()
-    task.wait(1)  -- Espera o personagem carregar
+    task.wait(2)  -- Espera o personagem carregar completamente
     updateAllESP()
 end)
 
 if player.Character then
-    task.wait(1)
+    task.wait(2)
     updateAllESP()
 end
 
--- Função para atualizar configurações (opcional)
-local function updateSettings(newSettings)
-    SETTINGS = newSettings
-    updateAllESP()
-end
-
-print("Sistema Aimbot+ESP carregado com sucesso!")
-print("Configurações atuais:", SETTINGS)
+print("Sistema Aimbot+ESP carregado! Segure o botão direito para mirar na cabeça")
