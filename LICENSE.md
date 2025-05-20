@@ -1,11 +1,37 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local maxDistance = 100 -- Distância máxima para detectar alvos
 local aimbotActive = false -- Estado do aimbot
+local toolName = "Gun" -- Nome da ferramenta necessária para ativar o aimbot (ajuste conforme necessário)
+
+-- Criar UI para feedback visual
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.Name = "AimbotUI"
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Size = UDim2.new(0, 200, 0, 50)
+TextLabel.Position = UDim2.new(0.5, -100, 0, 10)
+TextLabel.BackgroundTransparency = 0.5
+TextLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+TextLabel.TextColor3 = Color3.new(1, 1, 1)
+TextLabel.Text = "Aimbot: OFF"
+TextLabel.Parent = ScreenGui
+
+-- Criar sons para ativação/desativação
+local activateSound = Instance.new("Sound")
+activateSound.SoundId = "rbxasset://sounds/click.wav" -- Som padrão do Roblox (pode mudar)
+activateSound.Volume = 1
+activateSound.Parent = SoundService
+
+local deactivateSound = Instance.new("Sound")
+deactivateSound.SoundId = "rbxasset://sounds/switch.wav" -- Som padrão do Roblox (pode mudar)
+deactivateSound.Volume = 1
+deactivateSound.Parent = SoundService
 
 -- Função para aguardar o personagem carregar
 local function waitForCharacter()
@@ -15,6 +41,16 @@ local function waitForCharacter()
     end
     print("[Aimbot] Personagem carregado!")
     return player.Character
+end
+
+-- Função para verificar se a ferramenta correta está equipada
+local function isToolEquipped()
+    local character = player.Character
+    if character then
+        local tool = character:FindFirstChildOfClass("Tool")
+        return tool and tool.Name == toolName
+    end
+    return false
 end
 
 -- Função para encontrar o alvo mais próximo
@@ -42,6 +78,21 @@ local function findNearestTarget()
         end
     end
 
+    -- Verificar NPCs (opcional, inclui alvos não-jogadores com Humanoid)
+    for _, npc in pairs(workspace:GetDescendants()) do
+        if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+            local targetHumanoid = npc.Humanoid
+            if targetHumanoid.Health > 0 then
+                local distance = (character.HumanoidRootPart.Position - npc.HumanoidRootPart.Position).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestTarget = npc.HumanoidRootPart
+                    print("[Aimbot] Alvo NPC encontrado: " .. npc.Name .. " a " .. math.floor(distance) .. " studs")
+                end
+            end
+        end
+    end
+
     if not closestTarget then
         print("[Aimbot] Nenhum alvo válido encontrado dentro de " .. maxDistance .. " studs")
     end
@@ -50,27 +101,10 @@ end
 
 -- Função para atualizar a mira
 local function updateAimbot()
-    if aimbotActive then
+    if aimbotActive and isToolEquipped() then
         local target = findNearestTarget()
         if target then
             print("[Aimbot] Mirando em: " .. tostring(target.Parent.Name))
             camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
-        end
-    end
-end
-
--- Detectar clique do botão direito do mouse
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    print("[Aimbot] Input detectado: " .. tostring(input.UserInputType) .. ", gameProcessed: " .. tostring(gameProcessed))
-    if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessed then
-        aimbotActive = not aimbotActive
-        print(aimbotActive and "[Aimbot] Aimbot ativado!" or "[Aimbot] Aimbot desativado!")
-    end
-end)
-
--- Iniciar o script após o personagem carregar
-waitForCharacter()
-
--- Atualizar a cada frame
-RunService.RenderStepped:Connect(updateAimbot)
-print("[Aimbot] Script iniciado!")
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position, Vector3.new(target.Position.X,
