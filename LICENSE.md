@@ -7,11 +7,13 @@ local camera = workspace.CurrentCamera
 local maxDistance = 100 -- Distância máxima para detectar alvos
 local aimbotActive = false -- Estado do aimbot
 
--- Aguarda o personagem carregar
+-- Função para aguardar o personagem carregar
 local function waitForCharacter()
+    print("Aguardando personagem carregar...")
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
         player.CharacterAdded:Wait()
     end
+    print("Personagem carregado!")
     return player.Character
 end
 
@@ -19,6 +21,7 @@ end
 local function findNearestTarget()
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then
+        print("Erro: Personagem ou HumanoidRootPart não encontrado!")
         return nil
     end
 
@@ -28,16 +31,20 @@ local function findNearestTarget()
     for _, otherPlayer in pairs(Players:GetPlayers()) do
         if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local targetHumanoid = otherPlayer.Character:FindFirstChild("Humanoid")
-            if targetHumanoid and targetHumanoid.Health > 0 then -- Verifica se o alvo está vivo
+            if targetHumanoid and targetHumanoid.Health > 0 then
                 local distance = (character.HumanoidRootPart.Position - otherPlayer.Character.HumanoidRootPart.Position).Magnitude
                 if distance < closestDistance then
                     closestDistance = distance
                     closestTarget = otherPlayer.Character.HumanoidRootPart
+                    print("Alvo encontrado: " .. otherPlayer.Name .. " a " .. math.floor(distance) .. " studs")
                 end
             end
         end
     end
 
+    if not closestTarget then
+        print("Nenhum alvo válido encontrado dentro de " .. maxDistance .. " studs")
+    end
     return closestTarget
 end
 
@@ -46,9 +53,8 @@ local function updateAimbot()
     if aimbotActive then
         local target = findNearestTarget()
         if target then
-            -- Ajusta a câmera para mirar no alvo
+            print("Mirando em: " .. tostring(target.Parent.Name))
             camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
-            -- Ajusta a rotação do personagem (opcional)
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                 player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position, Vector3.new(target.Position.X, player.Character.HumanoidRootPart.Position.Y, target.Position.Z))
             end
@@ -56,16 +62,18 @@ local function updateAimbot()
     end
 end
 
--- Ativar/desativar o aimbot com o botão direito do mouse
+-- Detectar clique do botão direito do mouse
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton2 then
+    print("Input detectado: " .. tostring(input.UserInputType) .. ", gameProcessed: " .. tostring(gameProcessed))
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
         aimbotActive = not aimbotActive
         print(aimbotActive and "Aimbot ativado!" or "Aimbot desativado!")
     end
 end)
 
--- Garante que o personagem está carregado antes de iniciar
+-- Iniciar o script após o personagem carregar
 waitForCharacter()
 
 -- Atualizar a cada frame
 RunService.RenderStepped:Connect(updateAimbot)
+print("Aimbot script iniciado!")
