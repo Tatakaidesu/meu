@@ -1,32 +1,19 @@
--- Este é um script de aimbot mais complexo para o JJSploit. Ele irá automaticamente alinhar com o jogador mais próximo da mira.
+-- This is a simple GUI script for Roblox.
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
-local function GetClosestPlayer()
-    local ClosestPlayer = nil
-    local ClosestDistance = math.huge
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local TextLabel = Instance.new("TextLabel")
 
-    for _, Player in ipairs(Players:GetPlayers()) do
-        if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild("Humanoid") and Player.Character.Humanoid.Health > 0 then
-            local Distance = (Player.Character.HumanoidRootPart.Position - Mouse.Hit.p).Magnitude
-            if Distance < ClosestDistance then
-                ClosestPlayer = Player
-                ClosestDistance = Distance
-            end
-        end
-    end
-
-    return ClosestPlayer
-end
-
-local function OnInputBegan(Input, GameProcessed)
-    if Input.UserInputType == Enum.UserInputType.MouseButton2 and not GameProcessed then
-        local ClosestPlayer = GetClosestPlayer()
-        if ClosestPlayer then
-            Mouse.TargetFilter = ClosestPlayer.Character
-        end
-    end
-end
-
-Mouse.InputBegan:Connect(OnInputBegan)
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+Frame.Parent = ScreenGui
+Frame.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
+Frame.Position = UDim2.new(0.5, -100, 0.5, -50)
+Frame.Size = UDim2.new(0, 200, 0, 100)
+TextLabel.Parent = Frame
+TextLabel.BackgroundColor3 = Color3.new(1, 1, 1)
+TextLabel.Position = UDim2.new(0, 0, 0, 0)
+TextLabel.Size = UDim2.new(1, 0, 1, 0)
+TextLabel.Text = "Hello, World!"
