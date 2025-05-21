@@ -49,36 +49,6 @@ end
 
 _G.HackEstado = estado
 
--- Status do sistema
-local status = Instance.new("TextLabel")
-status.Size = UDim2.new(0, 300, 0, 25)
-status.Position = UDim2.new(0, 20, 0, #hacks * 40 + 30)
-status.Text = "🔐 Sistema Seguro - Indetectável"
-status.TextColor3 = Color3.new(0, 1, 0)
-status.BackgroundTransparency = 1
-status.Font = Enum.Font.Code
-status.TextSize = 14
-status.Parent = mainFrame
-
--- Proteção fake
-task.spawn(function()
-    while true do
-        task.wait(math.random(10, 20))
-        status.Text = "⚠️ Detecção de Risco - Ocultando Cheats..."
-        status.TextColor3 = Color3.new(1, 1, 0)
-        for nome, _ in pairs(_G.HackEstado) do
-            _G.HackEstado[nome] = false
-            botoes[nome].BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-        end
-        task.wait(5)
-        status.Text = "✅ Sistema Reestabilizado - Ative manualmente"
-        status.TextColor3 = Color3.new(0, 1, 0)
-        for nome, _ in pairs(_G.HackEstado) do
-            botoes[nome].BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        end
-    end
-end)
-
 -- Aimbot
 local corpoParaMirar = "Head"
 local fov = 120
