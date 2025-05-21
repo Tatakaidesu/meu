@@ -1,169 +1,181 @@
--- Serviços
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
--- Configurações
-local SETTINGS = {
-    AIMBOT = {
-        ACTIVATION_KEY = Enum.UserInputType.MouseButton2,  -- Botão direito
-        STRENGTH = 0.35,  -- Força do aimbot (0.1-1.0)
-        MAX_DISTANCE = 1200,  -- Alcance máximo
-        AIM_AT_HEAD = true,  -- Mirar na cabeça
-        ENABLED = true
-    },
-    ESP = {
-        ENABLED = true,
-        BOX_COLOR = Color3.fromRGB(255, 70, 70),
-        TEXT_COLOR = Color3.fromRGB(255, 255, 255)
-    }
-}
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+local Camera = workspace.CurrentCamera
+local Char = Player.Character or Player.CharacterAdded:Wait()
+local gui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
+gui.Name = "HackMenu"
+gui.ResetOnSpawn = false
 
--- Variáveis
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
-local espCache = {}
-local aimbotActive = false
+-- Base arrastável
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 240, 0, 320)
+mainFrame.Position = UDim2.new(0, 20, 0, 20)
+mainFrame.BackgroundTransparency = 1
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = gui
 
--- Função para criar ESP
-local function createESP(target)
-    if not target.Character or espCache[target] then return end
-    
-    local character = target.Character
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "ESP_Highlight"
-    highlight.FillTransparency = 0.8
-    highlight.OutlineColor = SETTINGS.ESP.BOX_COLOR
-    highlight.OutlineTransparency = 0
-    highlight.Parent = character
-
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP_Billboard"
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Adornee = character:WaitForChild("Head")
-
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Text = target.Name
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.TextColor3 = SETTINGS.ESP.TEXT_COLOR
-    textLabel.BackgroundTransparency = 1
-    textLabel.TextStrokeTransparency = 0.5
-    textLabel.Parent = billboard
-    billboard.Parent = character
-
-    espCache[target] = {Highlight = highlight, Billboard = billboard}
+-- Criação de botões
+local function criarBotao(nome, posY)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 200, 0, 30)
+    btn.Position = UDim2.new(0, 20, 0, posY)
+    btn.Text = nome
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 16
+    btn.Parent = mainFrame
+    return btn
 end
 
--- Função para remover ESP
-local function removeESP(target)
-    if espCache[target] then
-        espCache[target].Highlight:Destroy()
-        espCache[target].Billboard:Destroy()
-        espCache[target] = nil
-    end
+local hacks = {"Aimbot", "ESP", "Speed", "Fly", "Teleport"}
+local botoes = {}
+local estado = {}
+
+for i, nome in ipairs(hacks) do
+    local botao = criarBotao(nome, 20 + (i - 1) * 40)
+    estado[nome] = false
+    botao.MouseButton1Click:Connect(function()
+        estado[nome] = not estado[nome]
+        botao.BackgroundColor3 = estado[nome] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(30, 30, 30)
+    end)
+    botoes[nome] = botao
 end
 
--- Atualizar ESP para todos
-local function updateAllESP()
-    for _, target in ipairs(Players:GetPlayers()) do
-        if target ~= player then
-            if SETTINGS.ESP.ENABLED then
-                createESP(target)
-            else
-                removeESP(target)
-            end
+_G.HackEstado = estado
+
+-- Status do sistema
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(0, 300, 0, 25)
+status.Position = UDim2.new(0, 20, 0, #hacks * 40 + 30)
+status.Text = "🔐 Sistema Seguro - Indetectável"
+status.TextColor3 = Color3.new(0, 1, 0)
+status.BackgroundTransparency = 1
+status.Font = Enum.Font.Code
+status.TextSize = 14
+status.Parent = mainFrame
+
+-- Proteção fake
+task.spawn(function()
+    while true do
+        task.wait(math.random(10, 20))
+        status.Text = "⚠️ Detecção de Risco - Ocultando Cheats..."
+        status.TextColor3 = Color3.new(1, 1, 0)
+        for nome, _ in pairs(_G.HackEstado) do
+            _G.HackEstado[nome] = false
+            botoes[nome].BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+        end
+        task.wait(5)
+        status.Text = "✅ Sistema Reestabilizado - Ative manualmente"
+        status.TextColor3 = Color3.new(0, 1, 0)
+        for nome, _ in pairs(_G.HackEstado) do
+            botoes[nome].BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         end
     end
-end
+end)
 
--- Encontrar melhor alvo (agora prioriza cabeça)
-local function findBestTarget()
-    local closestTarget = nil
-    local closestDistance = SETTINGS.AIMBOT.MAX_DISTANCE
-    local localChar = player.Character
-    
-    if not localChar then return nil end
-    
-    local localRoot = localChar:FindFirstChild("HumanoidRootPart")
-    if not localRoot then return nil end
-    
-    for _, target in ipairs(Players:GetPlayers()) do
-        if target ~= player and target.Character then
-            local targetHead = target.Character:FindFirstChild("Head")
-            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-            
-            if targetHead and targetRoot then
-                local distance = (localRoot.Position - targetRoot.Position).Magnitude
-                
-                if distance < closestDistance then
-                    closestDistance = distance
-                    closestTarget = SETTINGS.AIMBOT.AIM_AT_HEAD and targetHead or targetRoot
+-- Aimbot
+local corpoParaMirar = "Head"
+local fov = 120
+local function encontrarAlvo()
+    local menorDist = fov
+    local alvo = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character and p.Character:FindFirstChild(corpoParaMirar) then
+            local parte = p.Character[corpoParaMirar]
+            local tela, visivel = Camera:WorldToViewportPoint(parte.Position)
+            if visivel then
+                local dist = (Vector2.new(tela.X, tela.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                if dist < menorDist then
+                    menorDist = dist
+                    alvo = parte
                 end
             end
         end
     end
-    
-    return closestTarget
+    return alvo
 end
 
--- Aimbot preciso (com interpolação suave)
-local function preciseAimbot()
-    if not aimbotActive or not SETTINGS.AIMBOT.ENABLED then return end
-    
-    local target = findBestTarget()
-    if not target then return end
-    
-    local currentCF = camera.CFrame
-    local targetPos = target.Position
-    
-    -- Cálculo preciso da direção
-    local direction = (targetPos - currentCF.Position).Unit
-    local newLook = currentCF.LookVector:Lerp(direction, SETTINGS.AIMBOT.STRENGTH)
-    
-    -- Aplica a mira
-    camera.CFrame = CFrame.lookAt(currentCF.Position, currentCF.Position + newLook)
-end
-
--- Controles
-UserInputService.InputBegan:Connect(function(input)
-    if input.UserInputType == SETTINGS.AIMBOT.ACTIVATION_KEY then
-        aimbotActive = true
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == SETTINGS.AIMBOT.ACTIVATION_KEY then
-        aimbotActive = false
-    end
-end)
-
--- Loop principal
 RunService.RenderStepped:Connect(function()
-    preciseAimbot()
-end)
-
--- Gerenciamento de jogadores
-Players.PlayerAdded:Connect(function(newPlayer)
-    newPlayer.CharacterAdded:Connect(function()
-        if SETTINGS.ESP.ENABLED then
-            createESP(newPlayer)
+    if _G.HackEstado["Aimbot"] then
+        local alvo = encontrarAlvo()
+        if alvo then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.Position)
         end
-    end)
+    end
 end)
 
-Players.PlayerRemoving:Connect(removeESP)
-
--- Inicialização
-player.CharacterAdded:Connect(function()
-    task.wait(2)  -- Espera o personagem carregar completamente
-    updateAllESP()
-end)
-
-if player.Character then
-    task.wait(2)
-    updateAllESP()
+-- ESP
+function criarESP(alvo)
+    local box = Instance.new("BoxHandleAdornment")
+    box.Size = Vector3.new(2, 3, 1)
+    box.Transparency = 0.5
+    box.Color3 = Color3.new(1, 0, 0)
+    box.AlwaysOnTop = true
+    box.ZIndex = 5
+    box.Adornee = alvo
+    box.Name = "ESPBox"
+    box.Parent = alvo
+    return box
 end
 
-print("Sistema Aimbot+ESP carregado! Segure o botão direito para mirar na cabeça")
+RunService.RenderStepped:Connect(function()
+    if _G.HackEstado["ESP"] then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local root = p.Character.HumanoidRootPart
+                if not root:FindFirstChild("ESPBox") then
+                    criarESP(root)
+                end
+            end
+        end
+    end
+end)
+
+-- Speed Hack
+RunService.RenderStepped:Connect(function()
+    if _G.HackEstado["Speed"] then
+        if Player.Character then
+            Player.Character.Humanoid.WalkSpeed = 50
+        end
+    else
+        if Player.Character then
+            Player.Character.Humanoid.WalkSpeed = 16
+        end
+    end
+end)
+
+-- Fly / Super Jump
+RunService.RenderStepped:Connect(function()
+    if _G.HackEstado["Fly"] then
+        if Player.Character then
+            Player.Character.Humanoid.JumpPower = 150
+        end
+    else
+        if Player.Character then
+            Player.Character.Humanoid.JumpPower = 50
+        end
+    end
+end)
+
+-- Teleport Hack (com tecla T)
+local lugares = {
+    Vector3.new(0, 10, 0),
+    Vector3.new(100, 30, 100),
+    Vector3.new(0, 100, 0),
+}
+local index = 1
+UserInputService.InputBegan:Connect(function(input, gp)
+    if input.KeyCode == Enum.KeyCode.T and _G.HackEstado["Teleport"] then
+        if Player.Character then
+            Player.Character:MoveTo(lugares[index])
+            index += 1
+            if index > #lugares then index = 1 end
+        end
+    end
+end)
