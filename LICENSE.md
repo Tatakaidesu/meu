@@ -6,11 +6,21 @@ local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
 local Camera = workspace.CurrentCamera
 local Char = Player.Character or Player.CharacterAdded:Wait()
+
+-- Criar GUI estilizada e arrastável
 local gui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
 gui.Name = "HackMenu"
 gui.ResetOnSpawn = false
 
--- Base arrastável
+local shadow = Instance.new("Frame")
+shadow.Size = UDim2.new(0, 286, 0, 366)
+shadow.Position = UDim2.new(0, 23, 0, 23)
+shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+shadow.BackgroundTransparency = 0.7
+shadow.BorderSizePixel = 0
+shadow.ZIndex = 1
+shadow.Parent = gui
+
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 280, 0, 360)
 mainFrame.Position = UDim2.new(0, 20, 0, 20)
@@ -19,19 +29,9 @@ mainFrame.BackgroundTransparency = 0.1
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
+mainFrame.ZIndex = 2
 mainFrame.Parent = gui
 
--- Sombra (frame atrás para profundidade)
-local shadow = Instance.new("Frame")
-shadow.Size = mainFrame.Size + UDim2.new(0, 6, 0, 6)
-shadow.Position = mainFrame.Position + UDim2.new(0, 3, 0, 3)
-shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-shadow.BackgroundTransparency = 0.7
-shadow.BorderSizePixel = 0
-shadow.ZIndex = mainFrame.ZIndex - 1
-shadow.Parent = gui
-
--- Título do menu
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -40, 0, 40)
 title.Position = UDim2.new(0, 20, 0, 10)
@@ -43,7 +43,6 @@ title.TextSize = 24
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = mainFrame
 
--- Linha de destaque sob o título
 local underline = Instance.new("Frame")
 underline.Size = UDim2.new(0, 240, 0, 2)
 underline.Position = UDim2.new(0, 20, 0, 50)
@@ -51,7 +50,6 @@ underline.BackgroundColor3 = Color3.fromRGB(0, 255, 128)
 underline.BorderSizePixel = 0
 underline.Parent = mainFrame
 
--- Função para criar botões estilizados com efeito hover
 local function criarBotao(nome, posY)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 240, 0, 36)
@@ -66,14 +64,12 @@ local function criarBotao(nome, posY)
     btn.TextWrapped = true
     btn.Parent = mainFrame
 
-    -- Efeito hover (mouse entra)
     btn.MouseEnter:Connect(function()
-        if btn.BackgroundColor3 ~= Color3.fromRGB(0, 170, 0) then -- se não ativo
+        if btn.BackgroundColor3 ~= Color3.fromRGB(0, 170, 0) then
             btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
             btn.TextColor3 = Color3.fromRGB(220, 220, 220)
         end
     end)
-    -- Efeito hover (mouse sai)
     btn.MouseLeave:Connect(function()
         if btn.BackgroundColor3 ~= Color3.fromRGB(0, 170, 0) then
             btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -106,7 +102,6 @@ end
 
 _G.HackEstado = estado
 
--- Status simples
 local status = Instance.new("TextLabel")
 status.Size = UDim2.new(1, -40, 0, 28)
 status.Position = UDim2.new(0, 20, 0, 310)
@@ -117,3 +112,92 @@ status.Font = Enum.Font.Code
 status.TextSize = 14
 status.TextXAlignment = Enum.TextXAlignment.Left
 status.Parent = mainFrame
+
+-- Aimbot
+local corpoParaMirar = "Head"
+local fov = 120
+local function encontrarAlvo()
+    local menorDist = fov
+    local alvo = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= Player and p.Character and p.Character:FindFirstChild(corpoParaMirar) then
+            local parte = p.Character[corpoParaMirar]
+            local tela, visivel = Camera:WorldToViewportPoint(parte.Position)
+            if visivel then
+                local dist = (Vector2.new(tela.X, tela.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
+                if dist < menorDist then
+                    menorDist = dist
+                    alvo = parte
+                end
+            end
+        end
+    end
+    return alvo
+end
+
+RunService.RenderStepped:Connect(function()
+    if _G.HackEstado["Aimbot"] then
+        local alvo = encontrarAlvo()
+        if alvo then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.Position)
+        end
+    end
+end)
+
+-- ESP
+local function criarESP(alvo)
+    local box = Instance.new("BoxHandleAdornment")
+    box.Size = Vector3.new(2, 3, 1)
+    box.Transparency = 0.5
+    box.Color3 = Color3.new(1, 0, 0)
+    box.AlwaysOnTop = true
+    box.ZIndex = 5
+    box.Adornee = alvo
+    box.Name = "ESPBox"
+    box.Parent = alvo
+    return box
+end
+
+RunService.RenderStepped:Connect(function()
+    if _G.HackEstado["ESP"] then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= Player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local root = p.Character.HumanoidRootPart
+                if not root:FindFirstChild("ESPBox") then
+                    criarESP(root)
+                end
+            end
+        end
+    end
+end)
+
+-- Speed Hack
+RunService.RenderStepped:Connect(function()
+    if Player.Character then
+        Player.Character.Humanoid.WalkSpeed = _G.HackEstado["Speed"] and 50 or 16
+    end
+end)
+
+-- Fly / Super Jump
+RunService.RenderStepped:Connect(function()
+    if Player.Character then
+        Player.Character.Humanoid.JumpPower = _G.HackEstado["Fly"] and 150 or 50
+    end
+end)
+
+-- Teleport Hack (com tecla T)
+local lugares = {
+    Vector3.new(0, 10, 0),
+    Vector3.new(100, 30, 100),
+    Vector3.new(0, 100, 0),
+}
+local index = 1
+UserInputService.InputBegan:Connect(function(input, gp)
+    if input.KeyCode == Enum.KeyCode.T and _G.HackEstado["Teleport"] then
+        if Player.Character then
+            Player.Character:MoveTo(lugares[index])
+            index = index + 1
+            if index > #lugares then index = 1 end
+        end
+    end
+end)
